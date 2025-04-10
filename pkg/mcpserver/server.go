@@ -95,13 +95,13 @@ func (rcs *RefuncMCPServer) Run(stopC <-chan struct{}) {
 	rcs.secretInformerFactory.Core().V1().Secrets().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    rcs.handleSecretChange,
 		UpdateFunc: updateHandler(rcs.handleSecretChange),
-		DeleteFunc: rcs.handleSecretChange,
+		DeleteFunc: rcs.handleSecretDelete,
 	})
 
 	rcs.refuncInformerFactory.Refunc().V1beta3().Triggers().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    rcs.handleTriggerChange,
 		UpdateFunc: updateHandler(rcs.handleTriggerChange),
-		DeleteFunc: rcs.handleTriggerChange,
+		DeleteFunc: rcs.handleTriggerDelete,
 	})
 
 	go rcs.secretInformerFactory.Start(stopC) //self managed informer manual start

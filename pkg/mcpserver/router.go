@@ -77,15 +77,6 @@ func (rcs *RefuncMCPServer) handleSecretChange(obj interface{}) {
 		token = string(tokenBts)
 	}
 	key := k8sKey(secret)
-	// on delete
-	if !secret.DeletionTimestamp.IsZero() {
-		if _, ok := rcs.endpoints.Load(key); ok {
-			rcs.endpoints.Delete(key)
-			rcs.mcps.Delete(key)
-			rcs.popluateEndpoints()
-		}
-		return
-	}
 	// on upsert
 	c, loaded := rcs.endpoints.LoadOrStore(key, &httpHandler{
 		ns:    secret.Namespace,
@@ -107,6 +98,26 @@ func (rcs *RefuncMCPServer) handleSecretChange(obj interface{}) {
 			rcs.popluateEndpoints()
 		}
 	}
+	return
+}
+
+func (rcs *RefuncMCPServer) handleSecretDelete(obj interface{}) {
+	origin, ok := obj.(*corev1.Secret)
+	if !ok {
+		klog.Errorf("obj %v not is a secret", obj)
+		return
+	}
+	secret := origin.DeepCopy()
+	key := k8sKey(secret)
+	// on delete
+	if _, ok := rcs.endpoints.Load(key); ok {
+		rcs.endpoints.Delete(key)
+		rcs.popluateEndpoints()
+	}
+	if _, ok := rcs.mcps.Load(key); ok {
+		rcs.mcps.Delete(key)
+	}
+	klog.Infof("delete mcp server for %s", key)
 	return
 }
 

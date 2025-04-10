@@ -35,17 +35,36 @@ func (rcs *RefuncMCPServer) handleTriggerChange(obj interface{}) {
 		return
 	}
 	mcpServer := c.(*server.MCPServer)
-	// delete tool
-	if !trigger.DeletionTimestamp.IsZero() {
-		mcpServer.DeleteTools(trigger.Spec.FuncName)
-		klog.Infof("Delete tool %s func %s", mcpKey, trigger.Spec.FuncName)
-		return
-	}
 	// upsert tool
 	tool := mcp.NewToolWithRawSchema(trigger.Spec.FuncName, config.Desc, config.Schema)
 	mcpServer.DeleteTools(trigger.Spec.FuncName)
 	mcpServer.AddTool(tool, createToolHandler(rcs, trigger))
 	klog.Infof("update tool %s func %s", mcpKey, trigger.Spec.FuncName)
+}
+
+func (rcs *RefuncMCPServer) handleTriggerDelete(obj interface{}) {
+	trigger, ok := obj.(*rfv1beta3.Trigger)
+	if !ok {
+		klog.Errorf("obj %v not is a trigger", obj)
+		return
+	}
+	if trigger.Spec.Type != MCPTriggerType {
+		return
+	}
+	mcpKey, _, err := triggerForToolConfig(trigger)
+	if err != nil {
+		return
+	}
+	c, loaded := rcs.mcps.Load(mcpKey)
+	if !loaded {
+		klog.Errorf("mcp server %s not found", mcpKey)
+		return
+	}
+	mcpServer := c.(*server.MCPServer)
+	// delete tool
+	mcpServer.DeleteTools(trigger.Spec.FuncName)
+	klog.Infof("delete tool %s func %s", mcpKey, trigger.Spec.FuncName)
+	return
 }
 
 func triggerForToolConfig(trigger *rfv1beta3.Trigger) (string, toolConfig, error) {
