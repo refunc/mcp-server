@@ -15,9 +15,11 @@ import (
 
 // ns token socpe mcp handlers
 type entryHandler struct {
+	ns       string
 	basePath string
 	router   *mmux.MutableRouter
-	entrys   sync.Map
+	configs  sync.Map
+	mcps     sync.Map
 	rcs      *RefuncMCPServer
 }
 
@@ -35,30 +37,48 @@ type toolConfig struct {
 	Schema json.RawMessage `json:"schema"`
 }
 
-// popluateEntrys refresh token socpe all mcp handler router
-func (entry *entryHandler) popluateEntrys() {
+// refresh token socpe all mcp handler router
+func (entry *entryHandler) popluateConfigs() {
 	router := mux.NewRouter()
-	var mcps sync.Map
-	entry.entrys.Range(func(_, value interface{}) bool {
+	tools := map[string][]server.ServerTool{}
+	entry.configs.Range(func(_, value interface{}) bool {
 		cfg := value.(mcpConfig)
-		c, _ := mcps.LoadOrStore(cfg.fn, server.NewMCPServer(cfg.fn, cfg.ns))
-		mcpserver := c.(*server.MCPServer)
 		for idx, item := range cfg.Tools {
 			if item.Name == "" {
 				klog.Warningf("%s index %d tool name is empty", cfg.key, idx)
 				continue
 			}
-			tool := mcp.NewToolWithRawSchema(item.Name, item.Desc, item.Schema)
-			mcpserver.AddTool(tool, createMCPHandler(entry.rcs, "tool", item.Name, cfg.ns, cfg.fn))
+			if _, ok := tools[cfg.fn]; !ok {
+				tools[cfg.fn] = []server.ServerTool{}
+			}
+			tool := server.ServerTool{
+				Tool:    mcp.NewToolWithRawSchema(item.Name, item.Desc, item.Schema),
+				Handler: createMCPHandler(entry.rcs, "tool", item.Name, cfg.ns, cfg.fn),
+			}
+			tools[cfg.fn] = append(tools[cfg.fn], tool)
 		}
 		return true
 	})
-	mcps.Range(func(fn, value any) bool {
-		entryPath, mcpserver := fmt.Sprintf("%s/%s", entry.basePath, fn), value.(*server.MCPServer)
-		sseServer := server.NewSSEServer(mcpserver, server.WithBasePath(entryPath))
-		router.PathPrefix(entryPath).HandlerFunc(sseServer.ServeHTTP)
+	for fn, items := range tools {
+		c, _ := entry.mcps.LoadOrStore(fn, server.NewMCPServer(fn, entry.ns)) //reuse mcpserver to send notify for clients
+		mcpserver := c.(*server.MCPServer)
+		mcpserver.SetTools(items...)
+		fnPath := fmt.Sprintf("%s/%s", entry.basePath, fn)
+		sseServer := server.NewSSEServer(mcpserver, server.WithBasePath(fnPath))
+		router.PathPrefix(fnPath).HandlerFunc(sseServer.ServeHTTP)
+	}
+	gcfns := []string{}
+	entry.mcps.Range(func(key, _ any) bool {
+		fnKey := key.(string)
+		if _, ok := tools[fnKey]; !ok {
+			gcfns = append(gcfns, fnKey)
+		}
 		return true
 	})
+	for _, fn := range gcfns {
+		entry.mcps.Delete(fn)
+		klog.Infof("delete func %s/%s mcp server", entry.ns, fn)
+	}
 	klog.Infof("update %s mcp servers", entry.basePath)
 	entry.router.UpdateRouter(router)
 }
@@ -82,9 +102,9 @@ func (rcs *RefuncMCPServer) handleTriggerChange(obj interface{}) {
 		return
 	}
 	mcpEntry := c.(*entryHandler)
-	mcpEntry.entrys.Store(config.key, config)
+	mcpEntry.configs.Store(config.key, config)
 	klog.Infof("update %s mcp handler", config.key)
-	mcpEntry.popluateEntrys()
+	mcpEntry.popluateConfigs()
 }
 
 func (rcs *RefuncMCPServer) handleTriggerDelete(obj interface{}) {
@@ -106,9 +126,9 @@ func (rcs *RefuncMCPServer) handleTriggerDelete(obj interface{}) {
 		return
 	}
 	mcpEntry := c.(*entryHandler)
-	mcpEntry.entrys.Delete(config.key)
+	mcpEntry.configs.Delete(config.key)
 	klog.Infof("delete %s mcp handler", config.key)
-	mcpEntry.popluateEntrys()
+	mcpEntry.popluateConfigs()
 	return
 }
 

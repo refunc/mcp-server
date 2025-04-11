@@ -30,6 +30,7 @@ func (t *httpHandler) setupHTTPEndpoints(router *mux.Router) {
 		endpoint = fmt.Sprintf("%s/%s", endpoint, t.token)
 	}
 	c, loaded := t.rcs.mcps.LoadOrStore(t.key(), &entryHandler{
+		ns:       t.ns,
 		basePath: endpoint,
 		router:   mmux.NewMutableRouter(),
 		rcs:      t.rcs,
@@ -84,7 +85,7 @@ func (rcs *RefuncMCPServer) handleSecretChange(obj interface{}) {
 		rcs:   rcs,
 	})
 	if !loaded {
-		rcs.popluateEndpoints()
+		rcs.popluateEndpoints(fmt.Sprintf("add %s secret", key))
 	} else {
 		current := c.(*httpHandler)
 		if current.token != token {
@@ -94,7 +95,7 @@ func (rcs *RefuncMCPServer) handleSecretChange(obj interface{}) {
 				token: token,
 				rcs:   rcs,
 			})
-			rcs.popluateEndpoints()
+			rcs.popluateEndpoints(fmt.Sprintf("update %s secret", key))
 		}
 	}
 	return
@@ -111,7 +112,7 @@ func (rcs *RefuncMCPServer) handleSecretDelete(obj interface{}) {
 	// on delete
 	if _, ok := rcs.endpoints.Load(key); ok {
 		rcs.endpoints.Delete(key)
-		rcs.popluateEndpoints()
+		rcs.popluateEndpoints(fmt.Sprintf("delete %s secret", key))
 	}
 	if _, ok := rcs.mcps.Load(key); ok {
 		rcs.mcps.Delete(key)
@@ -120,14 +121,14 @@ func (rcs *RefuncMCPServer) handleSecretDelete(obj interface{}) {
 	return
 }
 
-func (rcs *RefuncMCPServer) popluateEndpoints() {
+func (rcs *RefuncMCPServer) popluateEndpoints(event string) {
 	router := mux.NewRouter()
 	rcs.endpoints.Range(func(_, value interface{}) bool {
 		value.(*httpHandler).setupHTTPEndpoints(router)
 		return true
 	})
 	rcs.router.UpdateRouter(router)
-	klog.Infof("update router endpoints")
+	klog.Infof("update router endpoints on %s", event)
 }
 
 func k8sKey(o metav1.Object) string {
