@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gorilla/mux"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/refunc/refunc/pkg/operators/triggers/httptrigger/mmux"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,27 +19,27 @@ type httpHandler struct {
 }
 
 func (t *httpHandler) setupHTTPEndpoints(router *mux.Router) {
-	secret, err := t.rcs.secretLister.Secrets(t.ns).Get(t.name)
+	_, err := t.rcs.secretLister.Secrets(t.ns).Get(t.name)
 	if err != nil {
 		klog.Errorf("get %s secret error %v", t.key(), err)
 		return
 	}
-	// endpoint url
+	// endpoint url /ns/secret-name/token/func-name
 	endpoint := fmt.Sprintf("/%s/%s", t.ns, t.name)
 	if t.token != "" {
 		endpoint = fmt.Sprintf("%s/%s", endpoint, t.token)
 	}
-	// endpoint sse handler
-	c, loaded := t.rcs.mcps.LoadOrStore(t.key(), server.NewMCPServer(
-		t.key(),
-		secret.GetResourceVersion(),
-	))
+	c, loaded := t.rcs.mcps.LoadOrStore(t.key(), &entryHandler{
+		basePath: endpoint,
+		router:   mmux.NewMutableRouter(),
+		rcs:      t.rcs,
+	})
 	if !loaded {
-		// rebuild mcp server with existed tools
+		// rebuild mcp entry with existed triggers
 		triggers, err := t.rcs.triggerLister.Triggers(t.ns).List(labels.Everything())
 		if err != nil {
 			t.rcs.mcps.Delete(t.key())
-			klog.Errorf("rebuild mcp server for %s error %v", t.key(), err)
+			klog.Errorf("rebuild mcp entry for %s error %v", t.key(), err)
 			return
 		}
 		for _, trigger := range triggers {
@@ -52,12 +52,11 @@ func (t *httpHandler) setupHTTPEndpoints(router *mux.Router) {
 			}
 			t.rcs.handleTriggerChange(trigger)
 		}
-		klog.Infof("rebuild mcp server for %s as endpoint %s", t.key(), endpoint)
+		klog.Infof("rebuild mcp entry for %s as endpoint %s", t.key(), endpoint)
 	}
-	mcp := c.(*server.MCPServer)
-	sseServer := server.NewSSEServer(mcp, server.WithBasePath(endpoint))
+	entry := c.(*entryHandler)
 	// register handler
-	router.PathPrefix(endpoint).HandlerFunc(sseServer.ServeHTTP)
+	router.PathPrefix(endpoint).HandlerFunc(entry.router.ServeHTTP)
 }
 
 func (t *httpHandler) key() string {
@@ -117,7 +116,7 @@ func (rcs *RefuncMCPServer) handleSecretDelete(obj interface{}) {
 	if _, ok := rcs.mcps.Load(key); ok {
 		rcs.mcps.Delete(key)
 	}
-	klog.Infof("delete mcp server for %s", key)
+	klog.Infof("delete mcp entry for %s", key)
 	return
 }
 

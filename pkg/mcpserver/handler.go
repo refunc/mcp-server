@@ -8,15 +8,16 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	rfv1beta3 "github.com/refunc/refunc/pkg/apis/refunc/v1beta3"
 	"github.com/refunc/refunc/pkg/client"
 	"github.com/refunc/refunc/pkg/messages"
 	rfutils "github.com/refunc/refunc/pkg/utils"
 	"k8s.io/klog/v2"
 )
 
-func createToolHandler(rcs *RefuncMCPServer, trigger *rfv1beta3.Trigger) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func createMCPHandler(rcs *RefuncMCPServer, callType, callMethod, ns, fn string) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		request.Params.Arguments["_call_type"] = callType
+		request.Params.Arguments["_call_method"] = callMethod
 		payload, err := json.Marshal(request.Params.Arguments)
 		if err != nil {
 			return nil, errors.New("call func payload parse error")
@@ -25,7 +26,7 @@ func createToolHandler(rcs *RefuncMCPServer, trigger *rfv1beta3.Trigger) func(ct
 			Args:      payload,
 			RequestID: rfutils.GenID(payload),
 		}
-		fndef, err := rcs.funcdefLister.Funcdeves(trigger.Namespace).Get(trigger.Spec.FuncName)
+		fndef, err := rcs.funcdefLister.Funcdeves(ns).Get(fn)
 		if err != nil {
 			return nil, err
 		}

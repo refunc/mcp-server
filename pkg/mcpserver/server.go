@@ -36,7 +36,7 @@ type RefuncMCPServer struct {
 
 const (
 	MCPSecretLabel     = "mcp.refunc.io/secret-type"
-	MCPSecretLabelType = "toolset"
+	MCPSecretLabelType = "token"
 	MCPTriggerType     = "mcp"
 )
 
