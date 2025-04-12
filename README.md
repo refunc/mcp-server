@@ -50,9 +50,10 @@ PS: You need a Python 3 environment.
 ## Create MCP Endpoint
 
 
-Edit lambda.yaml and paste below code.
+Edit lambda.yaml as below code.
 
 ```
+
 metadata:
   name: mcp-demo
   namespace: refunc-system
@@ -93,13 +94,14 @@ spec:
           token: mcp-demo
           tools:
             - name: echo-hello
-              desc: Echo a hello msg
+              desc: Echo a hello msg #Cannot contain single quotes
               schema:
                 type: object
                 properties: {}
                 required: []
         saveLog: false
         saveResult: false
+
 ```
 
 ```
