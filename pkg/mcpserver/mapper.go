@@ -1,10 +1,13 @@
 package mcpserver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -21,6 +24,12 @@ type entryHandler struct {
 	configs  sync.Map
 	mcps     sync.Map
 	rcs      *RefuncMCPServer
+}
+
+type entryMCPServer struct {
+	mcpserver *server.MCPServer
+	ssesrv    *server.SSEServer
+	conns     sync.Map
 }
 
 type mcpConfig struct {
@@ -60,13 +69,26 @@ func (entry *entryHandler) popluateConfigs() {
 		return true
 	})
 	for fn, items := range tools {
-		c, _ := entry.mcps.LoadOrStore(fn, server.NewMCPServer(fn, entry.ns)) //reuse mcpserver to send notify for clients
-		mcpserver := c.(*server.MCPServer)
-		mcpserver.SetTools(items...)
 		fnPath := fmt.Sprintf("%s/%s", entry.basePath, fn)
-		sseServer := server.NewSSEServer(mcpserver, server.WithBasePath(fnPath))
-		router.PathPrefix(fnPath).HandlerFunc(sseServer.ServeHTTP)
+		c, loaded := entry.mcps.Load(fn)
+		if !loaded {
+			mcpserver := server.NewMCPServer(fn, entry.ns)
+			sseServer := server.NewSSEServer(mcpserver, server.WithBasePath(fnPath))
+			c = &entryMCPServer{mcpserver: mcpserver, ssesrv: sseServer}
+			entry.mcps.Store(fn, c)
+		}
+		ecs := c.(*entryMCPServer)
+		ecs.mcpserver.SetTools(items...)
+		router.PathPrefix(fnPath).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithCancel(r.Context())
+			reqID := uuid.New().String()
+			ecs.conns.Store(reqID, cancel)
+			defer ecs.conns.Delete(reqID)
+			ecs.ssesrv.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
+	entry.router.UpdateRouter(router)
+	klog.Infof("update %s mcp servers", entry.basePath)
 	gcfns := []string{}
 	entry.mcps.Range(func(key, _ any) bool {
 		fnKey := key.(string)
@@ -76,11 +98,17 @@ func (entry *entryHandler) popluateConfigs() {
 		return true
 	})
 	for _, fn := range gcfns {
+		if c, ok := entry.mcps.Load(fn); ok {
+			ecs := c.(*entryMCPServer)
+			// close expired client sessions
+			ecs.conns.Range(func(_, value any) bool {
+				value.(context.CancelFunc)()
+				return true
+			})
+		}
 		entry.mcps.Delete(fn)
 		klog.Infof("delete func %s/%s mcp server", entry.ns, fn)
 	}
-	klog.Infof("update %s mcp servers", entry.basePath)
-	entry.router.UpdateRouter(router)
 }
 
 func (rcs *RefuncMCPServer) handleTriggerChange(obj interface{}) {
