@@ -6,9 +6,10 @@ toolchain go1.23.8
 
 require (
 	github.com/Arvintian/go-utils v0.0.0-20221012040808-2e61c0c3eece
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/handlers v1.4.0
 	github.com/gorilla/mux v1.8.0
-	github.com/mark3labs/mcp-go v0.18.0
+	github.com/mark3labs/mcp-go v0.25.0
 	github.com/nats-io/nats.go v1.31.0
 	github.com/refunc/refunc v0.2.4-0.20250408135459-202e26c90a7a
 	github.com/spf13/cobra v1.9.1
@@ -25,9 +26,8 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -42,6 +42,7 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/refunc/go-observer v1.0.3 // indirect
 	github.com/smartystreets/goconvey v1.8.1 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/crypto v0.18.0 // indirect
