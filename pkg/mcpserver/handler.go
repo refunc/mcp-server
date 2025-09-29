@@ -16,8 +16,10 @@ import (
 
 func createMCPHandler(rcs *RefuncMCPServer, callType, callMethod, ns, fn string) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		request.Params.Arguments["_call_type"] = callType
-		request.Params.Arguments["_call_method"] = callMethod
+		args := request.GetArguments()
+		args["_call_type"] = callType
+		args["_call_method"] = callMethod
+		request.Params.Arguments = args
 		payload, err := json.Marshal(request.Params.Arguments)
 		if err != nil {
 			return nil, errors.New("call func payload parse error")
