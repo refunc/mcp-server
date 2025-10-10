@@ -35,7 +35,17 @@ func (t *httpHandler) setupHTTPEndpoints(router *mux.Router) {
 		router:   mmux.NewMutableRouter(),
 		rcs:      t.rcs,
 	})
-	if !loaded {
+	entry := c.(*entryHandler)
+	if !loaded || entry.basePath != endpoint {
+		if loaded && entry.basePath != endpoint {
+			entry = &entryHandler{
+				ns:       t.ns,
+				basePath: endpoint,
+				router:   mmux.NewMutableRouter(),
+				rcs:      t.rcs,
+			}
+			t.rcs.mcps.Store(t.key(), entry)
+		}
 		// rebuild mcp entry with existed triggers
 		triggers, err := t.rcs.triggerLister.Triggers(t.ns).List(labels.Everything())
 		if err != nil {
@@ -55,7 +65,6 @@ func (t *httpHandler) setupHTTPEndpoints(router *mux.Router) {
 		}
 		klog.Infof("rebuild mcp entry for %s as endpoint %s", t.key(), endpoint)
 	}
-	entry := c.(*entryHandler)
 	// register handler
 	router.PathPrefix(endpoint).HandlerFunc(entry.router.ServeHTTP)
 }
