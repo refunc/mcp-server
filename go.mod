@@ -11,7 +11,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/mark3labs/mcp-go v0.41.0
 	github.com/nats-io/nats.go v1.31.0
-	github.com/refunc/refunc v0.2.4-0.20250408135459-202e26c90a7a
+	github.com/refunc/refunc v0.2.4-0.20251014061932-ca549af89c7b
 	github.com/spf13/cobra v1.9.1
 	k8s.io/api v0.23.17
 	k8s.io/apimachinery v0.23.17
