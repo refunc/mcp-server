@@ -53,7 +53,12 @@ func createMCPHandler(rcs *RefuncMCPServer, callType, callMethod, ns, fn string)
 				if err != nil {
 					bts = messages.GetErrActionBytes(err)
 				}
-				return mcp.NewToolResultText(string(bts)), nil
+				res := mcp.NewToolResultText(string(bts))
+				var v interface{}
+				if err := json.Unmarshal(bts, &v); err == nil {
+					res.StructuredContent = v
+				}
+				return res, nil
 			}
 		}
 	}
