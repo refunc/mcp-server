@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -73,7 +74,7 @@ func (entry *entryHandler) popluateConfigs() {
 		c, loaded := entry.mcps.Load(fn)
 		if !loaded {
 			mcpserver := server.NewMCPServer(fn, entry.ns)
-			sseServer := server.NewSSEServer(mcpserver, server.WithBasePath(fnPath))
+			sseServer := server.NewSSEServer(mcpserver, server.WithStaticBasePath(fnPath), server.WithKeepAlive(true), server.WithKeepAliveInterval(60*time.Second))
 			c = &entryMCPServer{mcpserver: mcpserver, ssesrv: sseServer}
 			entry.mcps.Store(fn, c)
 		}
