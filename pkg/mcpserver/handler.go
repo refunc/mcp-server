@@ -14,11 +14,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func createMCPHandler(rcs *RefuncMCPServer, callType, callMethod, ns, fn string) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func createMCPHandler(rcs *RefuncMCPServer, cfg toolConfig, callType, ns, fn string) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := request.GetArguments()
 		args["_call_type"] = callType
-		args["_call_method"] = callMethod
+		args["_call_method"] = cfg.Name
 		request.Params.Arguments = args
 		payload, err := json.Marshal(request.Params.Arguments)
 		if err != nil {
@@ -53,9 +53,17 @@ func createMCPHandler(rcs *RefuncMCPServer, callType, callMethod, ns, fn string)
 				if err != nil {
 					bts = messages.GetErrActionBytes(err)
 				}
-				res := mcp.NewToolResultText(string(bts))
 				var v interface{}
-				if err := json.Unmarshal(bts, &v); err == nil {
+				// lambda result always is json
+				if err := json.Unmarshal(bts, &v); err != nil {
+					return nil, err
+				}
+				// reencode jsonstr as utf-8 with golang internel default
+				// not use unicode escape as jsonstr to save llm token
+				bts, _ = json.Marshal(v)
+				res := mcp.NewToolResultText(string(bts))
+				if cfg.ResultWithStructured {
+					// option disable result with structured content
 					res.StructuredContent = v
 				}
 				return res, nil

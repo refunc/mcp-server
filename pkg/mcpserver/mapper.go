@@ -42,9 +42,10 @@ type mcpConfig struct {
 }
 
 type toolConfig struct {
-	Name   string          `json:"name"`
-	Desc   string          `json:"desc"`
-	Schema json.RawMessage `json:"schema"`
+	Name                 string          `json:"name"`
+	Desc                 string          `json:"desc"`
+	Schema               json.RawMessage `json:"schema"`
+	ResultWithStructured bool            `json:"resultWithStructured"`
 }
 
 // refresh token socpe all mcp handler router
@@ -63,7 +64,7 @@ func (entry *entryHandler) popluateConfigs() {
 			}
 			tool := server.ServerTool{
 				Tool:    mcp.NewToolWithRawSchema(item.Name, item.Desc, item.Schema),
-				Handler: createMCPHandler(entry.rcs, "tool", item.Name, cfg.ns, cfg.fn),
+				Handler: createMCPHandler(entry.rcs, item, "tool", cfg.ns, cfg.fn),
 			}
 			tools[cfg.fn] = append(tools[cfg.fn], tool)
 		}
