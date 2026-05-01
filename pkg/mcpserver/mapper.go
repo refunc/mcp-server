@@ -71,7 +71,7 @@ func (entry *entryHandler) popluateConfigs() {
 		return true
 	})
 	for fn, items := range tools {
-		fnPath := fmt.Sprintf("%s/%s", entry.basePath, fn)
+		fnPath := fmt.Sprintf("%s/%s/", entry.basePath, fn)
 		c, loaded := entry.mcps.Load(fn)
 		if !loaded {
 			mcpserver := server.NewMCPServer(fn, entry.ns)
